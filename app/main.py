@@ -205,45 +205,49 @@ class ReportAiAnalysisInfo(Resource):
         m_start_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%S')
         m_end_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
 
-        resp = es.search(index="analysis*", query={
-                                'bool': {
-                                    'filter': [
-                                        {'term': {'type.keyword': 'file'}},
-                                        {'range': {'reg_date': {'gte': m_start_date}}},
-                                        {'range': {'reg_date': {'lte': m_end_date}}}
-                                    ]
-                                }
-                            }, size=0,
-                         aggs={
-                             'agg_malware_type': {
-                                 'terms': {'field': 'ai_file_analysis_result.detail_info.data.malware.keyword', 'size': 10}
-                             }
-                         }
-                         )
-
-        m_file_result = resp['aggregations']['agg_malware_type']['buckets']
-
-        resp = es.search(index="analysis*", query={
-                                'bool': {
-                                    'filter': [
-                                        {'term': {'type.keyword': 'url'}},
-                                        {'range': {'reg_date': {'gte': m_start_date}}},
-                                        {'range': {'reg_date': {'lte': m_end_date}}}
-                                    ]
-                                }
-                            }, size=0,
-                         aggs={
-                             'agg_malware_type': {
-                                 'terms': {'field': 'ai_url_analysis_result.detail_info.msg.prediction_result.keyword', 'size': 10}
-                             }
-                         }
-                         )
-
-        m_url_result = resp['aggregations']['agg_malware_type']['buckets']
-
         m_json = {}
-        m_json['ai_file_result'] = m_file_result
-        m_json['ai_url_result'] = m_url_result
+        try:
+            resp = es.search(index="analysis*", query={
+                                    'bool': {
+                                        'filter': [
+                                            {'term': {'type.keyword': 'file'}},
+                                            {'range': {'reg_date': {'gte': m_start_date}}},
+                                            {'range': {'reg_date': {'lte': m_end_date}}}
+                                        ]
+                                    }
+                                }, size=0,
+                             aggs={
+                                 'agg_malware_type': {
+                                     'terms': {'field': 'ai_file_analysis_result.detail_info.data.malware.keyword', 'size': 10}
+                                 }
+                             }
+                             )
+
+            m_file_result = resp['aggregations']['agg_malware_type']['buckets']
+
+            resp = es.search(index="analysis*", query={
+                                    'bool': {
+                                        'filter': [
+                                            {'term': {'type.keyword': 'url'}},
+                                            {'range': {'reg_date': {'gte': m_start_date}}},
+                                            {'range': {'reg_date': {'lte': m_end_date}}}
+                                        ]
+                                    }
+                                }, size=0,
+                             aggs={
+                                 'agg_malware_type': {
+                                     'terms': {'field': 'ai_url_analysis_result.detail_info.msg.prediction_result.keyword', 'size': 10}
+                                 }
+                             }
+                             )
+
+            m_url_result = resp['aggregations']['agg_malware_type']['buckets']
+
+
+            m_json['ai_file_result'] = m_file_result
+            m_json['ai_url_result'] = m_url_result
+        except:
+            print('error')
 
         return jsonify(m_json)
 
@@ -259,141 +263,146 @@ class ReportDailyAnalysisInfo(Resource):
         m_end_date = datetime.now().strftime('%Y-%m-%d')
         # , 'aggs': {'ai_malware_type': {'terms': {'field': 'ai_file_analysis_result.detail_info.data.detection.keyword'}}}
         # data date series
-        resp = es.search(index="analysis*", query={
-            'bool': {
-                'filter': [
-                    {'term': {'type.keyword': 'file'}},
-                    {'range': {'reg_date': {'gte': m_start_date, 'lte': m_end_date}}}
-                ]
-            }
-        }, size=0,
-                         aggs={
-                             'date_malware': {
-                                 'date_histogram':
-                                     {
-                                         'field': 'reg_date',
-                                         'calendar_interval': 'day',
-                                         'min_doc_count': 0,
-                                         'extended_bounds': {'min': m_start_date, 'max': m_end_date}
-                                     }
-                             }
-                         }
-                         )
-
-        m_collect_result = resp['aggregations']['date_malware']['buckets']
-
-        # ai line data
-        resp = es.search(index="analysis*", query={
-            'bool': {
-                'filter': [
-                    {'term': {'type.keyword': 'file'}},
-                    {'term': {'ai_file_analysis_result.detail_info.data.detection.keyword': 'Malware'}},
-                    {'range': {'reg_date': {'gte': m_start_date, 'lte': m_end_date}}}
-                ]
-            }
-        }, size=0,
-                         aggs={
-                             'date_malware': {
-                                 'date_histogram':
-                                     {
-                                         'field': 'reg_date',
-                                         'calendar_interval': 'day',
-                                         'min_doc_count': 0,
-                                         'extended_bounds': {'min': m_start_date, 'max': m_end_date}
-                                     }
-                             }
-                         }
-                         )
-
-        m_aimalware_result = resp['aggregations']['date_malware']['buckets']
-
-        # zzero line data
-        resp = es.search(index="analysis*", query={
-            'bool': {
-                'filter': [
-                    {'term': {'type.keyword': 'file'}},
-                    {'term': {'zzero_analysis_result.detail_info.total_result.keyword': 'malware'}},
-                    {'range': {'reg_date': {'gte': m_start_date, 'lte': m_end_date}}}
-                ]
-            }
-        }, size=0,
-                         aggs={
-                             'date_malware': {
-                                 'date_histogram':
-                                     {
-                                         'field': 'reg_date',
-                                         'calendar_interval': 'day',
-                                         'min_doc_count': 0,
-                                         'extended_bounds': {'min': m_start_date, 'max': m_end_date}
-                                     }
-                             }
-                         }
-                         )
-
-        m_zzeromalware_result = resp['aggregations']['date_malware']['buckets']
 
         m_json = {}
-        m_json['collect_result'] = m_collect_result
-        m_json['ai_malware_result'] = m_aimalware_result
-        m_json['zzero_malware_result'] = m_zzeromalware_result
+        try:
+            resp = es.search(index="analysis*", query={
+                'bool': {
+                    'filter': [
+                        {'term': {'type.keyword': 'file'}},
+                        {'range': {'reg_date': {'gte': m_start_date, 'lte': m_end_date}}}
+                    ]
+                }
+            }, size=0,
+                             aggs={
+                                 'date_malware': {
+                                     'date_histogram':
+                                         {
+                                             'field': 'reg_date',
+                                             'calendar_interval': 'day',
+                                             'min_doc_count': 0,
+                                             'extended_bounds': {'min': m_start_date, 'max': m_end_date}
+                                         }
+                                 }
+                             }
+                             )
 
-        # vaccine top 3
-        resp = es.search(index='analysis*', query={
-            'bool': {
-                'filter': [
-                    {'term': {'type.keyword': 'file'}},
-                    {'range': {'reg_date': {'gte': m_start_date, 'lte': m_end_date}}}
-                ]
-                , 'must_not': [{'match': {'zzero_analysis_result.detail_info.vaccine_detail_result.keyword': ''}}]
-            }
-        }, size=0,
-                         aggs={
-                             'malware_type': {'terms': {'field': 'zzero_analysis_result.detail_info.vaccine_detail_result.keyword', 'size': 3}}
-                         }
+            m_collect_result = resp['aggregations']['date_malware']['buckets']
 
-                         )
+            # ai line data
+            resp = es.search(index="analysis*", query={
+                'bool': {
+                    'filter': [
+                        {'term': {'type.keyword': 'file'}},
+                        {'term': {'ai_file_analysis_result.detail_info.data.detection.keyword': 'Malware'}},
+                        {'range': {'reg_date': {'gte': m_start_date, 'lte': m_end_date}}}
+                    ]
+                }
+            }, size=0,
+                             aggs={
+                                 'date_malware': {
+                                     'date_histogram':
+                                         {
+                                             'field': 'reg_date',
+                                             'calendar_interval': 'day',
+                                             'min_doc_count': 0,
+                                             'extended_bounds': {'min': m_start_date, 'max': m_end_date}
+                                         }
+                                 }
+                             }
+                             )
 
-        m_vaccine_top3 = resp['aggregations']['malware_type']['buckets']
+            m_aimalware_result = resp['aggregations']['date_malware']['buckets']
 
-        # yara top 3
-        resp = es.search(index='analysis*', query={
-            'bool': {
-                'filter': [
-                    {'term': {'type.keyword': 'file'}},
-                    {'range': {'reg_date': {'gte': m_start_date, 'lte': m_end_date}}}
-                ]
-                , 'must_not': [{'match': {'zzero_analysis_result.detail_info.detail_analysis_info.static_yara_rule.name.keyword': ''}}]
-            }
-        }, size=0,
-                         aggs={
-                             'malware_type': {'terms': {'field': 'zzero_analysis_result.detail_info.detail_analysis_info.static_yara_rule.name.keyword', 'size': 3}}
-                         }
+            # zzero line data
+            resp = es.search(index="analysis*", query={
+                'bool': {
+                    'filter': [
+                        {'term': {'type.keyword': 'file'}},
+                        {'term': {'zzero_analysis_result.detail_info.total_result.keyword': 'malware'}},
+                        {'range': {'reg_date': {'gte': m_start_date, 'lte': m_end_date}}}
+                    ]
+                }
+            }, size=0,
+                             aggs={
+                                 'date_malware': {
+                                     'date_histogram':
+                                         {
+                                             'field': 'reg_date',
+                                             'calendar_interval': 'day',
+                                             'min_doc_count': 0,
+                                             'extended_bounds': {'min': m_start_date, 'max': m_end_date}
+                                         }
+                                 }
+                             }
+                             )
 
-                         )
+            m_zzeromalware_result = resp['aggregations']['date_malware']['buckets']
 
-        m_yara_top3 = resp['aggregations']['malware_type']['buckets']
 
-        # ai top 3
-        resp = es.search(index='analysis*', query={
-            'bool': {
-                'filter': [
-                    {'term': {'type.keyword': 'file'}},
-                    {'range': {'reg_date': {'gte': m_start_date, 'lte': m_end_date}}}
-                ]
-                , 'must_not': [{'match': {'ai_file_analysis_result.detail_info.data.malware.keyword': ''}}]
-            }
-        }, size=0,
-                         aggs={
-                             'malware_type': {'terms': {'field': 'ai_file_analysis_result.detail_info.data.malware.keyword', 'size': 3}}
-                         }
+            m_json['collect_result'] = m_collect_result
+            m_json['ai_malware_result'] = m_aimalware_result
+            m_json['zzero_malware_result'] = m_zzeromalware_result
 
-                         )
+            # vaccine top 3
+            resp = es.search(index='analysis*', query={
+                'bool': {
+                    'filter': [
+                        {'term': {'type.keyword': 'file'}},
+                        {'range': {'reg_date': {'gte': m_start_date, 'lte': m_end_date}}}
+                    ]
+                    , 'must_not': [{'match': {'zzero_analysis_result.detail_info.vaccine_detail_result.keyword': ''}}]
+                }
+            }, size=0,
+                             aggs={
+                                 'malware_type': {'terms': {'field': 'zzero_analysis_result.detail_info.vaccine_detail_result.keyword', 'size': 3}}
+                             }
 
-        m_ai_top3 = resp['aggregations']['malware_type']['buckets']
+                             )
 
-        m_json['vaccine_top3'] = m_vaccine_top3
-        m_json['yara_top3'] = m_yara_top3
-        m_json['ai_top3'] = m_ai_top3
+            m_vaccine_top3 = resp['aggregations']['malware_type']['buckets']
+
+            # yara top 3
+            resp = es.search(index='analysis*', query={
+                'bool': {
+                    'filter': [
+                        {'term': {'type.keyword': 'file'}},
+                        {'range': {'reg_date': {'gte': m_start_date, 'lte': m_end_date}}}
+                    ]
+                    , 'must_not': [{'match': {'zzero_analysis_result.detail_info.detail_analysis_info.static_yara_rule.name.keyword': ''}}]
+                }
+            }, size=0,
+                             aggs={
+                                 'malware_type': {'terms': {'field': 'zzero_analysis_result.detail_info.detail_analysis_info.static_yara_rule.name.keyword', 'size': 3}}
+                             }
+
+                             )
+
+            m_yara_top3 = resp['aggregations']['malware_type']['buckets']
+
+            # ai top 3
+            resp = es.search(index='analysis*', query={
+                'bool': {
+                    'filter': [
+                        {'term': {'type.keyword': 'file'}},
+                        {'range': {'reg_date': {'gte': m_start_date, 'lte': m_end_date}}}
+                    ]
+                    , 'must_not': [{'match': {'ai_file_analysis_result.detail_info.data.malware.keyword': ''}}]
+                }
+            }, size=0,
+                             aggs={
+                                 'malware_type': {'terms': {'field': 'ai_file_analysis_result.detail_info.data.malware.keyword', 'size': 3}}
+                             }
+
+                             )
+
+            m_ai_top3 = resp['aggregations']['malware_type']['buckets']
+
+            m_json['vaccine_top3'] = m_vaccine_top3
+            m_json['yara_top3'] = m_yara_top3
+            m_json['ai_top3'] = m_ai_top3
+        except:
+            print('error')
 
         return jsonify(m_json)
 
@@ -405,45 +414,87 @@ class ReportDailyAnalysisInfo(Resource):
 class ReportUrlHunterInfo(Resource):
 
     def get(self):
-        m_mysql_ip = '125.7.199.176'
-        m_mysql_id = 'admin'
-        m_mysql_pw = 'password'
-
         m_json = {}
         m_json['url_list'] = []
 
-        # (1) MYSQL 연결
-        connection = mysql.connector.connect(host=m_mysql_ip, database='urlhunter_flask', user=m_mysql_id, password=m_mysql_pw)
+        try:
+            # (1) MYSQL 연결
+            connection = mysql.connector.connect(host=c_mysql_ip, database='urlhunter_flask', user=c_mysql_id, password=c_mysql_pw)
 
-        with connection:
-            with connection.cursor(buffered=True) as cur:
-                cur.execute('SELECT no, site_name, screenshot, similarity, defaced, reputation_result, ai_result FROM sites order by reg_date desc limit 0,8')
-                while True:
-                    records = cur.fetchmany(8)
-                    if len(records) != 0:
-                        for data in records:
-                            m_is_detected = 'N'
-                            if (data[3] <= 0.6 or data[4] == 1 or data[5] == 'Y' or data[6] == 'Y'):
-                                m_is_detected = 'Y'
-                            m_json['url_list'].append({'no': data[0], 'site_name': data[1], 'screenshot': data[2], 'is_detected': m_is_detected})
-                    else:
-                        break
+            with connection:
+                with connection.cursor(buffered=True) as cur:
+                    cur.execute('SELECT no, site_name, screenshot, similarity, defaced, reputation_result, ai_result FROM sites order by reg_date desc limit 0,8')
+                    while True:
+                        records = cur.fetchmany(8)
+                        if len(records) != 0:
+                            for data in records:
+                                m_is_detected = 'N'
+                                if (data[3] <= 0.6 or data[4] == 1 or data[5] == 'Y' or data[6] == 'Y'):
+                                    m_is_detected = 'Y'
+                                m_json['url_list'].append({'no': data[0], 'site_name': data[1], 'screenshot': data[2], 'is_detected': m_is_detected})
+                        else:
+                            break
 
-                cur.execute('SELECT count(*) FROM sites WHERE similarity<=0.6 or defaced=1 or reputation_result="Y" or ai_result="Y"')
-                m_url_hunter_detect_count = cur.fetchone()[0]
-                cur.execute('SELECT count(*) FROM sites')
-                m_url_hunter_all_count = cur.fetchone()[0]
-                m_url_hunter_normal_count = m_url_hunter_all_count - m_url_hunter_detect_count
-        connection.close()
+                    cur.execute('SELECT count(*) FROM sites WHERE similarity<=0.6 or defaced=1 or reputation_result="Y" or ai_result="Y"')
+                    m_url_hunter_detect_count = cur.fetchone()[0]
+                    cur.execute('SELECT count(*) FROM sites')
+                    m_url_hunter_all_count = cur.fetchone()[0]
+                    m_url_hunter_normal_count = m_url_hunter_all_count - m_url_hunter_detect_count
+            connection.close()
 
-        m_json['total_detect_count'] = m_url_hunter_detect_count
-        m_json['total_normal_count'] = m_url_hunter_normal_count
+            m_json['total_detect_count'] = m_url_hunter_detect_count
+            m_json['total_monitor_count'] = m_url_hunter_normal_count + m_url_hunter_detect_count
+        except:
+            print('error')
         return jsonify(m_json)
 
     @api.response(403, 'Not Authorized')
     def post(self):
         api.abort(403)
 
+@api.route('/monitoring/urlhunter_info_user')
+class ReportUrlHunterInfoUser(Resource):
+
+    def get(self):
+
+        m_json = {}
+        m_json['url_list'] = []
+
+        try:
+            # (1) MYSQL 연결
+            connection = mysql.connector.connect(host=c_mysql_ip, database='urlhunter_flask', user=c_mysql_id, password=c_mysql_pw)
+
+            with connection:
+                with connection.cursor(buffered=True) as cur:
+                    cur.execute('SELECT no, site_name, screenshot, similarity, defaced, reputation_result, ai_result FROM sites WHERE username=%s order by reg_date desc limit 0,16', (c_sitename,))
+                    while True:
+                        records = cur.fetchmany(16)
+                        if len(records) != 0:
+                            for data in records:
+                                m_is_detected = 'N'
+                                if (data[3] <= 0.6 or data[4] == 1 or data[5] == 'Y' or data[6] == 'Y'):
+                                    m_is_detected = 'Y'
+                                m_json['url_list'].append({'no': data[0], 'site_name': data[1], 'screenshot': data[2], 'is_detected': m_is_detected})
+                        else:
+                            break
+
+                    cur.execute('SELECT count(*) FROM sites WHERE username=%s and (similarity<=0.6 or defaced=1 or reputation_result="Y" or ai_result="Y")', (c_sitename,))
+                    m_url_hunter_detect_count = cur.fetchone()[0]
+                    cur.execute('SELECT count(*) FROM sites WHERE username=%s', (c_sitename,))
+                    m_url_hunter_all_count = cur.fetchone()[0]
+                    m_url_hunter_normal_count = m_url_hunter_all_count - m_url_hunter_detect_count
+            connection.close()
+
+            m_json['total_detect_count'] = m_url_hunter_detect_count
+            m_json['total_monitor_count'] = m_url_hunter_normal_count + m_url_hunter_detect_count
+        except:
+            print('error')
+        return jsonify(m_json)
+
+    @api.response(403, 'Not Authorized')
+    def post(self):
+        api.abort(403)
+        
 #Selva Starts
 class create_dict(dict): 
   
